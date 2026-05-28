@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>작물 농장 OOP — 다형성 시각화</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Gugi&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --soil:#3b2a1e; --soil-deep:#2a1d14; --leaf:#6db33f; --leaf-dark:#4a8a2a;
+    --sky:#cfe8b9; --gold:#f2c14e; --card:#fffaf0; --ink:#2a1d14; --danger:#d65a4b;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;font-family:'Gowun Dodum',sans-serif;color:var(--ink);
+    background:
+      radial-gradient(circle at 20% 10%, rgba(255,255,255,.4), transparent 40%),
+      linear-gradient(180deg,#a8d676 0%, #cfe8b9 35%, #e9dcc0 60%, var(--soil) 100%);
+    min-height:100vh;overflow-x:hidden;
+  }
+  .display{font-family:'Jua',sans-serif;}
+  .sun{position:fixed;top:-60px;right:-60px;width:240px;height:240px;border-radius:50%;
+    background:radial-gradient(circle,#fff4c4 0%,#f2c14e 55%,transparent 72%);
+    filter:blur(2px);opacity:.85;pointer-events:none;z-index:0;animation:pulse 6s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.08);}}
+  .wrap{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:32px 20px 80px;}
+  header h1{font-size:clamp(26px,5vw,48px);margin:0;color:var(--soil-deep);
+    text-shadow:2px 2px 0 #fff,4px 4px 0 rgba(0,0,0,.08);}
+  header p{font-size:14px;color:#4a3d2a;margin:8px 0 0;}
+
+  .tree{display:flex;flex-direction:column;align-items:center;margin:24px 0 6px;}
+  .node{background:var(--card);border:3px solid var(--soil-deep);border-radius:14px;
+    padding:8px 20px;font-family:'Jua',sans-serif;font-size:15px;
+    box-shadow:4px 4px 0 rgba(42,29,20,.25);text-align:center;}
+  .node.adt{background:#efe3ff;} .node.base{background:#e2f0d4;}
+  .connector{width:3px;height:22px;background:var(--soil-deep);}
+
+  .layout{display:grid;grid-template-columns:1.1fr .9fr;gap:24px;margin-top:20px;align-items:start;}
+  @media(max-width:880px){.layout{grid-template-columns:1fr;}}
+  .panel{background:rgba(255,250,240,.7);border:3px solid var(--soil-deep);border-radius:18px;
+    padding:18px;box-shadow:6px 6px 0 rgba(42,29,20,.18);}
+  .panel h2{font-family:'Jua',sans-serif;margin:0 0 12px;font-size:18px;color:var(--soil-deep);}
+
+  .palette{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:6px;}
+  .pal-item{display:flex;align-items:center;gap:6px;background:var(--card);border:2px solid var(--soil-deep);
+    border-radius:12px;padding:6px 12px;cursor:pointer;font-family:'Jua',sans-serif;font-size:14px;
+    box-shadow:0 3px 0 rgba(0,0,0,.15);transition:transform .1s;user-select:none;}
+  .pal-item:active{transform:translateY(2px);}
+  .pal-item.active{outline:3px solid var(--gold);background:#fff4d6;}
+  .pal-item .em{font-size:22px;}
+  .pal-tools{margin-top:8px;display:flex;gap:8px;}
+  .tool{flex:1;border:2px solid var(--soil-deep);background:#fff;border-radius:10px;padding:7px;
+    font-family:'Jua',sans-serif;font-size:13px;cursor:pointer;box-shadow:0 3px 0 rgba(0,0,0,.15);}
+  .tool.active{background:#ffd9d3;}
+
+  .gridmap{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:6px;}
+  .cell{aspect-ratio:1;background:#cdb892;border:3px dashed #9c8560;border-radius:12px;
+    display:flex;align-items:center;justify-content:center;font-size:34px;cursor:pointer;
+    position:relative;transition:transform .12s,background .2s;}
+  .cell:hover{background:#dcc9a3;transform:scale(1.03);}
+  .cell.filled{background:#f0e2c4;border-style:solid;border-color:var(--leaf-dark);}
+  .cell.infected{background:#ffd9d3;border-color:var(--danger);animation:wob .4s;}
+  @keyframes wob{0%,100%{transform:rotate(0);}25%{transform:rotate(-4deg);}75%{transform:rotate(4deg);}}
+  .cell.selected{outline:4px solid var(--gold);outline-offset:-2px;}
+  .cell .badge{position:absolute;top:2px;right:4px;font-size:10px;font-family:'Jua',sans-serif;}
+  .cell .ico{position:absolute;bottom:1px;left:4px;font-size:12px;}
+
+  .detail{background:var(--card);border:2px solid var(--soil-deep);border-radius:14px;padding:14px;margin-top:12px;}
+  .detail .dh{display:flex;align-items:center;gap:10px;}
+  .detail .dh .em{font-size:40px;}
+  .detail .dh h3{margin:0;font-family:'Jua',sans-serif;font-size:20px;}
+  .detail .dh .race{font-size:12px;color:#7a6a52;}
+  .stat{display:flex;justify-content:space-between;font-size:14px;padding:3px 0;border-bottom:1px dashed #d8c9a8;}
+  .yieldbar{height:10px;background:#e4d8bd;border-radius:6px;overflow:hidden;margin:8px 0;}
+  .yieldfill{height:100%;background:linear-gradient(90deg,var(--leaf),var(--leaf-dark));transition:width .5s;}
+  .status-pill{display:inline-block;font-size:11px;padding:2px 10px;border-radius:20px;font-family:'Jua',sans-serif;}
+  .pill-ok{background:#d6f0c4;color:#3f6e1f;} .pill-bad{background:#ffd9d3;color:#a8362a;}
+  .btns{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:12px;}
+  .btn{border:none;border-radius:10px;padding:10px 4px;font-family:'Jua',sans-serif;font-size:13px;
+    cursor:pointer;color:#fff;box-shadow:0 3px 0 rgba(0,0,0,.2);transition:transform .08s;}
+  .btn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.2);}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .btn-water{background:#4aa3d6;} .btn-infect{background:var(--danger);}
+  .btn-spread{background:#8a6fc4;} .btn-cure{background:#3fae7a;}
+  .empty-msg{color:#7a6a52;font-size:13px;text-align:center;padding:20px 0;}
+
+  .console{margin-top:24px;background:var(--soil-deep);border-radius:16px;padding:16px 18px;
+    border:3px solid #1a110b;box-shadow:inset 0 2px 12px rgba(0,0,0,.5);}
+  .console h2{font-family:'Jua',sans-serif;color:var(--gold);margin:0 0 8px;font-size:17px;}
+  #log{font-family:monospace;color:#e7dcc4;font-size:13px;line-height:1.7;max-height:200px;overflow-y:auto;white-space:pre-wrap;}
+  #log .line{padding:2px 0;border-bottom:1px solid rgba(255,255,255,.06);}
+  #log .hl{color:var(--gold);} #log .red{color:#ff9b8e;} #log .grn{color:#9be8b0;}
+  .clear{float:right;background:none;border:1px solid var(--gold);color:var(--gold);
+    border-radius:8px;font-size:11px;padding:3px 10px;cursor:pointer;font-family:'Jua',sans-serif;}
+</style>
+</head>
+<body>
+<div class="sun"></div>
+<div class="wrap">
+  <header>
+    <h1 class="display">🌱 작물 농장 OOP</h1>
+    <p>팔레트에서 작물을 골라 격자에 심고, 칸을 클릭해 메서드를 실행하세요. 전파는 <b>상하좌우 이웃</b>에만 작용합니다.</p>
+  </header>
+
+  <div class="tree">
+    <div class="node adt">CropADT <span style="font-size:11px;color:#7a5fa8">(추상 클래스)</span></div>
+    <div class="connector"></div>
+    <div class="node base">Crop <span style="font-size:11px;color:#4a8a2a">(베이스 클래스)</span></div>
+    <div class="connector"></div>
+    <div class="node" style="font-size:12px">▼ Tomato · Corn · Rice · Wheat (상속) ▼</div>
+  </div>
+
+  <div class="layout">
+    <div class="panel">
+      <h2>🗺️ 농장 격자맵 (4×4)</h2>
+      <div class="palette" id="palette"></div>
+      <div class="pal-tools">
+        <button class="tool" id="toolPlant" onclick="setTool('plant')">🌱 심기 모드</button>
+        <button class="tool" id="toolRemove" onclick="setTool('remove')">🗑️ 제거 모드</button>
+      </div>
+      <div class="gridmap" id="gridmap"></div>
+    </div>
+
+    <div class="panel">
+      <h2>🔎 선택한 작물</h2>
+      <div id="detail"><div class="empty-msg">격자에서 작물을 클릭하면<br>여기에 정보와 버튼이 나타납니다.</div></div>
+    </div>
+  </div>
+
+  <div class="console">
+    <button class="clear" onclick="clearLog()">지우기</button>
+    <h2>📋 실행 로그</h2>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+class Crop {
+  constructor(name, race, base){
+    this.name=name; this.race=race; this.base=base;
+    this.yield=base; this.infected=false; this.emoji="🌿"; this.cureRate=0.5;
+  }
+  water(){ log(`물을 주어 생산량 증가 (${r(this.yield)} → ${r(this.yield*1.5)})`); this.yield*=1.5; }
+  getInfected(){ log(`${this.name} 감염! 생산량 반절 감소 (${r(this.yield)} → ${r(this.yield/2)})`,'red');
+    this.infected=true; this.yield/=2; }
+  harvest(){ const t=this.yield; log(`${this.name} ${r(t)}만큼 수확, 기본값 복귀.`); this.yield=this.base; return t; }
+  cure(){
+    if(!this.infected){ log(`${this.name}(은)는 감염되지 않아 치료할 필요가 없습니다.`); return; }
+    const p=Math.round(this.cureRate*100);
+    if(Math.random()<this.cureRate){
+      this.infected=false;
+      if(this.yield < this.base){
+        log(`💊 [치료 성공] ${this.name} 회복! (성공확률 ${p}%) 생산량이 기본값보다 낮아 ${this.base}(으)로 복구.`,'grn');
+        this.yield=this.base;
+      } else {
+        log(`💊 [치료 성공] ${this.name} 회복! (성공확률 ${p}%) 생산량(${r(this.yield)})이 기본값 이상이라 그대로 유지.`,'grn');
+      }
+    } else { log(`💊 [치료 실패] ${this.name} 치료 실패… (성공확률 ${p}%)`,'red'); }
+  }
+  spreadTo(other){
+    if(!this.infected) return;
+    if(other.infected){ log(`[전파 생략] ${other.name}(은)는 이미 감염됨.`); }
+    else { log(`[전파] ${this.name} → ${other.name} 병충해 전파!`,'red'); other.getInfected(); }
+  }
+}
+class Tomato extends Crop{
+  constructor(n){super(n,"tomato",70); this.emoji="🍅"; this.cureRate=0.30;}
+  water(){ log(`[토마토] 물을 매우 좋아함! 생산량 2배 (${r(this.yield)} → ${r(this.yield*2)})`,'hl'); this.yield*=2; }
+  getInfected(){ log(`[토마토] 역병 발생! 전파력 강함, 생산량 1/3로 감소.`,'red'); this.infected=true; this.yield/=3; }
+  spreadTo(other){
+    if(!this.infected) return;
+    if(other.infected){ log(`[전파 생략] ${other.name}(은)는 이미 감염됨.`); }
+    else { log(`[토마토] 역병은 전파력이 강합니다! ${other.name}에 반드시 전파.`,'red'); other.getInfected(); }
+  }
+}
+class Corn extends Crop{
+  constructor(n){super(n,"corn",40); this.emoji="🌽"; this.cureRate=0.50;}
+  water(){ log(`[옥수수] 물 충분히 공급. 생산량 1.5배 (${r(this.yield)} → ${r(this.yield*1.5)})`,'hl'); this.yield*=1.5; }
+  getInfected(){ log(`[옥수수] 깨씨무늬병! 생산량 1/2로 감소.`,'red'); this.infected=true; this.yield/=2; }
+}
+class Rice extends Crop{
+  constructor(n){super(n,"rice",50); this.emoji="🌾"; this.cureRate=0.80;}
+  water(){ log(`[벼] 수위 조절. 생산량 1.2배 (${r(this.yield)} → ${r(this.yield*1.2)})`,'hl'); this.yield*=1.2; }
+  getInfected(){ log(`[벼] 도열병이지만 수분이 많아 생산량 유지.`,'red'); this.infected=true; }
+  spreadTo(other){ if(this.infected) log(`[벼] 도열병은 다른 작물에 전파되지 않습니다.`); }
+}
+class Wheat extends Crop{
+  constructor(n){super(n,"wheat",30); this.emoji="🥖"; this.cureRate=0.65;}
+  water(){ log(`[밀] 적당한 수분. 생산량 1.3배 (${r(this.yield)} → ${r(this.yield*1.3)})`,'hl'); this.yield*=1.3; }
+  getInfected(){ log(`[밀] 녹병 발생! 생산량 3/4로 감소.`,'red'); this.infected=true; this.yield*=0.75; }
+  spreadTo(other){ if(this.infected) log(`[밀] 녹병은 전파력이 약해 전파되지 않습니다.`); }
+}
+
+const COLS=4, ROWS=4, MAXY=70;
+const grid=new Array(ROWS*COLS).fill(null);
+let tool='plant', selectedType='Tomato', selectedCell=null, nameCounter={Tomato:0,Corn:0,Rice:0,Wheat:0};
+const TYPES={
+  Tomato:{cls:Tomato,emoji:"🍅",label:"토마토",cure:30},
+  Corn:{cls:Corn,emoji:"🌽",label:"옥수수",cure:50},
+  Rice:{cls:Rice,emoji:"🌾",label:"벼",cure:80},
+  Wheat:{cls:Wheat,emoji:"🥖",label:"밀",cure:65},
+};
+function r(n){ return Math.round(n*100)/100; }
+function log(msg,cls=''){ const b=document.getElementById('log');const d=document.createElement('div');
+  d.className='line'+(cls?' '+cls:'');d.textContent=msg;b.appendChild(d);b.scrollTop=b.scrollHeight; }
+function clearLog(){ document.getElementById('log').innerHTML=''; }
+
+function buildPalette(){
+  const p=document.getElementById('palette');p.innerHTML='';
+  Object.entries(TYPES).forEach(([k,v])=>{
+    const el=document.createElement('div');
+    el.className='pal-item'+(k===selectedType?' active':'');
+    el.innerHTML=`<span class="em">${v.emoji}</span>${v.label}<span style="font-size:10px;color:#7a6a52">치료${v.cure}%</span>`;
+    el.onclick=()=>{selectedType=k;tool='plant';buildPalette();setTool('plant');};
+    p.appendChild(el);
+  });
+}
+function setTool(t){ tool=t;
+  document.getElementById('toolPlant').classList.toggle('active',t==='plant');
+  document.getElementById('toolRemove').classList.toggle('active',t==='remove'); }
+function buildGrid(){
+  const g=document.getElementById('gridmap');g.innerHTML='';
+  for(let i=0;i<ROWS*COLS;i++){
+    const c=document.createElement('div');c.className='cell';c.id='cell'+i;
+    c.onclick=()=>cellClick(i); g.appendChild(c);
+  }
+  refreshGrid();
+}
+function refreshGrid(){
+  for(let i=0;i<ROWS*COLS;i++){
+    const cell=document.getElementById('cell'+i); const crop=grid[i];
+    cell.className='cell';
+    if(crop){
+      cell.classList.add('filled');
+      if(crop.infected) cell.classList.add('infected');
+      cell.innerHTML=`${crop.emoji}<span class="badge">${r(crop.yield)}</span>${crop.infected?'<span class="ico">🦠</span>':''}`;
+    } else { cell.innerHTML=''; }
+    if(i===selectedCell) cell.classList.add('selected');
+  }
+}
+function neighbors(i){
+  const row=Math.floor(i/COLS), col=i%COLS, res=[];
+  if(row>0) res.push(i-COLS); if(row<ROWS-1) res.push(i+COLS);
+  if(col>0) res.push(i-1); if(col<COLS-1) res.push(i+1);
+  return res;
+}
+function cellClick(i){
+  if(tool==='plant'){
+    if(!grid[i]){
+      const t=TYPES[selectedType]; nameCounter[selectedType]++;
+      const nm=`${t.label}#${nameCounter[selectedType]}`;
+      grid[i]=new t.cls(nm); log(`🌱 (${Math.floor(i/COLS)+1},${i%COLS+1})에 ${nm} 심음.`);
+    }
+    selectedCell=i;
+  } else if(tool==='remove'){
+    if(grid[i]){ log(`🗑️ ${grid[i].name} 제거.`); grid[i]=null; if(selectedCell===i)selectedCell=null; }
+  }
+  refreshGrid(); renderDetail();
+}
+function renderDetail(){
+  const d=document.getElementById('detail');
+  if(selectedCell===null || !grid[selectedCell]){
+    d.innerHTML='<div class="empty-msg">격자에서 작물을 클릭하면<br>여기에 정보와 버튼이 나타납니다.</div>';return;
+  }
+  const c=grid[selectedCell];
+  d.innerHTML=`
+    <div class="dh"><span class="em">${c.emoji}</span>
+      <div><h3>${c.name}</h3>
+      <div class="race">class ${c.constructor.name} · race: ${c.race} · 치료확률 ${Math.round(c.cureRate*100)}%</div></div></div>
+    <div class="stat" style="margin-top:10px"><span>생산량</span><b>${r(c.yield)}</b></div>
+    <div class="yieldbar"><div class="yieldfill" style="width:${Math.min(100,c.yield/MAXY*100)}%"></div></div>
+    <div class="stat" style="border:none"><span>상태</span>
+      <span class="status-pill ${c.infected?'pill-bad':'pill-ok'}">${c.infected?'감염됨':'건강함'}</span></div>
+    <div class="btns">
+      <button class="btn btn-water" onclick="act('water')">💧 물 주기</button>
+      <button class="btn btn-infect" onclick="act('infect')" ${c.infected?'disabled':''}>🦠 감염</button>
+      <button class="btn btn-cure" onclick="act('cure')" ${c.infected?'':'disabled'}>💊 치료</button>
+      <button class="btn btn-spread" onclick="act('spread')" ${c.infected?'':'disabled'}>📡 전파(상하좌우)</button>
+    </div>`;
+}
+function act(type){
+  const i=selectedCell, c=grid[i]; if(!c) return;
+  if(type==='water') c.water();
+  else if(type==='infect') c.getInfected();
+  else if(type==='cure') c.cure();
+  else if(type==='spread'){
+    log(`── ${c.name}이(가) 상하좌우 이웃에 전파 시도 ──`);
+    const nb=neighbors(i).filter(j=>grid[j]);
+    if(nb.length===0) log(`주변에 전파할 이웃 작물이 없습니다.`);
+    else nb.forEach(j=>c.spreadTo(grid[j]));
+  }
+  refreshGrid(); renderDetail();
+}
+buildPalette(); setTool('plant'); buildGrid();
+log('농장이 준비되었습니다. 작물을 골라 격자에 심어보세요! 🌻','hl');
+</script>
+</body>
+</html>
